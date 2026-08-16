@@ -1,0 +1,27 @@
+{
+  // typecheck 配置：paths 指向相邻 DSH checkout 的构建产物（lib/types/*.d.ts），
+  // 只检查 dsh-guardian 自己的代码；DSH 源码的检查由 DSH 自己的 CI 负责。
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "types": ["node"],
+    "noEmit": true,
+    "paths": {
+      "@deepseek-ai/cordis": ["../deepseek-harness/vendor/cordis/lib/types"],
+      "@deepseek-ai/dsh-session": ["../deepseek-harness/packages/core/session/lib/types"],
+      "@deepseek-ai/dsh-storage": ["../deepseek-harness/packages/storage/storage/lib/types"],
+      "@deepseek-ai/dsh-storage-json": ["../deepseek-harness/packages/storage/storage-json/lib/types"],
+      "@deepseek-ai/dsh-system-prompt": ["../deepseek-harness/packages/core/system-prompt/lib/types"]
+    }
+  },
+  "include": ["src", "tests"]
+}

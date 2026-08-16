@@ -1,0 +1,6 @@
+# dsh-guardian bundle patch: one insert over the profile root.
+# `storage` and `system-prompt` already live in the host (dsh-base);
+# this adds only the guardian plugin, which registers its own storage backends.
+- insert:
+    - id: guardian
+      name: '@max-null/dsh-guardian'
