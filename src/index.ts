@@ -55,7 +55,9 @@ export const inject = ['storage', 'systemPrompt']
 
 export async function apply(ctx: Context, config?: GuardianConfig): Promise<void> {
   await ctx.plugin(GuardianEngine, config)
-  const guardian = ctx.guardian
+  // 读全局服务 store（引擎自己提供的服务，不是本插件的 inject）。
+  const guardian = ctx.get('guardian')
+  if (guardian === undefined) throw new Error('guardian engine failed to register')
   // 三个动态提醒：每轮组装时按当前会话状态求值，空文本不贡献。
   ctx.systemPrompt.context({
     name: 'guardian:assertion',
