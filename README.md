@@ -18,6 +18,13 @@ edit review queue, and no-feedback-loop monitoring.
 | Edit review queue | Successful `write`/`edit` tool calls enqueue `{filePath, sessionId, turn}`. FIFO cap 20, dedup per file+session. Reminder lists them at turn end. |
 | No-feedback loop | Per turn: edits without `bash`/`pwsh` increment the counter; any exec resets it. 3 consecutive edit-only turns inject a "build a feedback loop first" warning. |
 
+## 截图
+
+本插件是**会话行为监控类**：不新增任何按钮、面板或设置项。它在会话过程中维护断言计数、编辑审查队列与「无反馈环」监测，效果体现在模型行为的约束上。
+
+> 按《SSiD 开发手册》§9 截图规范：截图须回答「装完会多出/变成什么」的**入口与面板**。
+> 本插件无界面元素（no UI surface），故**不适用**该项要求，改以上述行为效果说明代替。
+
 ## Compose
 
 ```yaml
