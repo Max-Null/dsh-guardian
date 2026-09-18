@@ -61,11 +61,16 @@ One JSON unit (`guardian`, version 1) under `$DSH_HOME/storages/guardian`:
 `sessions` table (per-session state) + the global slot (review queue).
 In-memory is authoritative during a run; state flushes at turn end.
 
+A failed flush is logged to stderr and dropped: the serialized write chain stays
+usable, and neither the event entry point nor the chain lets a failure escape into
+the host process. The state is advisory and rebuildable, so losing one update is the
+intended blast radius — a rejected write must never take the kernel down.
+
 ## Develop
 
 ```sh
 npm install --legacy-peer-deps   # DSH peer types resolve via tsconfig paths
-npm test                         # vitest: 27 pure-function tests
+npm test                         # vitest: 31 tests (incl. write-failure resilience)
 npm run typecheck                # tsc against adjacent deepseek-harness lib/types
 npm run build                    # emit dist/
 ```

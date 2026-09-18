@@ -93,6 +93,8 @@ export class GuardianEngine extends Service {
   private activeSessionId = ''
   /** 串行化磁盘写（KvUnit 不序列化并发写）。 */
   private writeChain: Promise<void> = Promise.resolve()
+  /** 被吞掉的失败累计次数（诊断用：连续增长说明存储或环境有问题）。 */
+  private failureCount = 0
 
   constructor(ctx: Context, private readonly config: GuardianConfig = {}) {
     super(ctx, 'guardian')
@@ -150,9 +152,57 @@ export class GuardianEngine extends Service {
     }
     this.reviewQueue = Array.isArray(snapshot.global) ? snapshot.global as ReviewItem[] : []
 
+    this.bindSessionEvents()
+  }
+
+  /**
+   * 注册 `session/event` 监听。
+   *
+   * 监听器是同步回调，不能 await 事件处理，因此包装层必须自己吞掉失败
+   * （见 `handleEventSafely`）——`void` 掉一个会 reject 的 promise 等于
+   * 把未处理的 rejection 交给进程。
+   */
+  private bindSessionEvents(): void {
     this.ctx.on('session/event', (session: Session, event: SessionEvent) => {
-      void this.handleEvent(session, event)
+      void this.handleEventSafely(session, event)
     })
+  }
+
+  /**
+   * 事件入口的安全包装：任何失败都不得逃逸为未处理的 rejection。
+   *
+   * Node 默认把未处理的 rejection 当作致命错误，所以一次存储写失败就足以
+   * 终止承载全部会话的内核进程。guardian 的状态（断言计数、审查队列）都是
+   * **可重建的提示性状态**，正确的后果是「丢一次本次更新」，而不是进程退出。
+   */
+  private async handleEventSafely(session: Session, event: SessionEvent): Promise<void> {
+    try {
+      await this.handleEvent(session, event)
+    } catch (error) {
+      this.absorbFailure('事件处理失败', error)
+    }
+  }
+
+  /**
+   * 记录并吞掉一次不应逃逸到进程的失败。
+   *
+   * 走 stderr 而不是 `ctx.logger`：`ctx.logger.warn` 的默认阈值是 1（只放行
+   * error/info），warn 的消息连 cordis 的内存 buffer 都进不去，更不会到任何
+   * 文件——等于静默吞掉。宿主侧 stderr 才是落地的：SSiD 壳把内核子进程的
+   * stderr 落进 `~/.ssid/kernel-child.log`。同类先例见 `dsh-ssid-pwsh-retry`。
+   * @param scope — 失败环节，用于日志定位
+   * @param error — 原始错误（只取 message，状态本身可重建）
+   */
+  private absorbFailure(scope: string, error: unknown): void {
+    this.failureCount += 1
+    const detail = error instanceof Error ? error.message : String(error)
+    try {
+      process.stderr.write(
+        `[guardian] ${scope}（累计 ${this.failureCount} 次，本次更新已丢弃）：${detail}\n`,
+      )
+    } catch {
+      // Electron 无控制台宿主下 stderr 不可写，忽略——诊断不该影响状态机
+    }
   }
 
   /** 事件分发：按类型推进三个触发线，turn/end 时结算 + flush。 */
@@ -213,19 +263,33 @@ export class GuardianEngine extends Service {
     }
   }
 
-  /** 序列化写一条会话状态。 */
+  /**
+   * 序列化写一条会话状态。
+   *
+   * `catch` 不可省略：`writeChain` 一旦 rejected 就**保持** rejected，链上
+   * 后续写入会立即失败，`turn/end` 的 `await` 还会把它冒泡到事件入口。
+   * 吞掉失败后链始终可用，下一次写入照常尝试。
+   */
   private flushSession(sessionId: string, state: GuardianSessionState): Promise<void> {
-    this.writeChain = this.writeChain.then(async () => {
-      await this.unit?.putRecord(SESSIONS_TABLE, sessionId, state)
-    })
+    this.writeChain = this.writeChain
+      .then(async () => {
+        await this.unit?.putRecord(SESSIONS_TABLE, sessionId, state)
+      })
+      .catch((error: unknown) => {
+        this.absorbFailure('会话状态落盘失败', error)
+      })
     return this.writeChain
   }
 
-  /** 序列化写审查队列（global slot）。 */
+  /** 序列化写审查队列（global slot）。吞掉失败的理由同 `flushSession`。 */
   private flushQueue(): Promise<void> {
-    this.writeChain = this.writeChain.then(async () => {
-      await this.unit?.setGlobal(this.reviewQueue)
-    })
+    this.writeChain = this.writeChain
+      .then(async () => {
+        await this.unit?.setGlobal(this.reviewQueue)
+      })
+      .catch((error: unknown) => {
+        this.absorbFailure('审查队列落盘失败', error)
+      })
     return this.writeChain
   }
 }

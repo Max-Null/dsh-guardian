@@ -1,6 +1,6 @@
 {
   "name": "@max-null/dsh-guardian",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Guardian state engine for the DeepSeek Harness — assertion counting, edit review queue, and no-feedback-loop monitoring over session events",
   "license": "MIT",
   "publishConfig": {
