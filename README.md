@@ -15,7 +15,7 @@ edit review queue, and no-feedback-loop monitoring.
 | Trigger line | Rule |
 |---|---|
 | Assertion count | Scans assistant messages for unverified claims (`不支持/做不到/只有 N 种/不存在/无法 X/远低于/过于 X`). Counts per session, decays by 1 every 3 clean turns, segments into levels [1,3]+. |
-| Edit review queue | Successful `write`/`edit` tool calls enqueue `{filePath, sessionId, turn}`. FIFO cap 20, dedup per file+session. Reminder lists them at turn end. |
+| Edit review queue | Successful `write`/`edit` tool calls enqueue `{filePath, sessionId, turn}`. FIFO cap 20, dedup per file+session. The review reminder re-lists them at each prompt assembly. |
 | No-feedback loop | Per turn: edits without `bash`/`pwsh` increment the counter; any exec resets it. 3 consecutive edit-only turns inject a "build a feedback loop first" warning. |
 
 ## 截图
@@ -59,7 +59,8 @@ both). Installs as a bundle: `dsh plugin --profile <name> add @max-null/dsh-guar
 
 One JSON unit (`guardian`, version 1) under `$DSH_HOME/storages/guardian`:
 `sessions` table (per-session state) + the global slot (review queue).
-In-memory is authoritative during a run; state flushes at turn end.
+In-memory is authoritative during a run; the session state flushes at turn end
+and the review queue on each accepted edit.
 
 A failed flush is logged to stderr and dropped: the serialized write chain stays
 usable, and neither the event entry point nor the chain lets a failure escape into
@@ -69,16 +70,18 @@ intended blast radius — a rejected write must never take the kernel down.
 ## Develop
 
 ```sh
-npm install --legacy-peer-deps   # DSH peer types resolve via tsconfig paths
+npm install --legacy-peer-deps   # @deepseek-ai/* types come from these devDependencies
 npm test                         # vitest: 31 tests (incl. write-failure resilience)
-npm run typecheck                # tsc against adjacent deepseek-harness lib/types
+npm run typecheck                # tsc against the installed @deepseek-ai/* types
 npm run build                    # emit dist/
 ```
 
-> The npm registry carries unsynchronized DSH rc versions, so dev tooling
-> resolves `@deepseek-ai/*` types through `tsconfig.json` paths pointing at an
-> adjacent `deepseek-harness` checkout (`../deepseek-harness`). Runtime peer
-> resolution is unaffected — the host composition supplies the real packages.
+> Dev tooling resolves `@deepseek-ai/*` types from the copies `devDependencies`
+> installs into `node_modules`. The `paths` entries in `tsconfig.json` point at an
+> adjacent `deepseek-harness` checkout, which does not exist beside
+> `max-null-plugins/`, so TypeScript falls back to `node_modules` for every one of
+> them. Runtime peer resolution is unaffected — the host composition supplies the
+> real packages.
 
 ## SSID 系列
 
