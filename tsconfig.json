@@ -14,14 +14,7 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "types": ["node"],
-    "noEmit": true,
-    "paths": {
-      "@deepseek-ai/cordis": ["../deepseek-harness/vendor/cordis/lib/types"],
-      "@deepseek-ai/dsh-session": ["../deepseek-harness/packages/core/session/lib/types"],
-      "@deepseek-ai/dsh-storage": ["../deepseek-harness/packages/storage/storage/lib/types"],
-      "@deepseek-ai/dsh-storage-json": ["../deepseek-harness/packages/storage/storage-json/lib/types"],
-      "@deepseek-ai/dsh-system-prompt": ["../deepseek-harness/packages/core/system-prompt/lib/types"]
-    }
+    "noEmit": true
   },
   "include": ["src", "tests"]
 }
